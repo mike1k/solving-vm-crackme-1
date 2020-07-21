@@ -429,3 +429,139 @@ int __thiscall vm::vm_run(VM *this)
   }
 }
 ```
+
+So if we jump into `push` this will reveal another member name.
+```cpp
+VM *__thiscall vm::vm_push(VM *this)
+{
+  VM *result; // eax
+  int v2; // [esp+D0h] [ebp-14h]
+  VM *v3; // [esp+DCh] [ebp-8h]
+
+  v3 = this;
+  v2 = ((int (__thiscall *)(VM *))this->vfptr->vm_getd)(this);
+  v3->dword20 -= 4;  // this seems to be the stack pointer
+  *(_DWORD *)v3->dword20 = v2; // allocates 4 bytes then sets this space of the stack to the `dst` register (e.g `push r0`)
+  result = v3;
+  v3->rip += 2; //2 byte instruction len
+  return result;
+}
+```
+But, there is also another `push` instruction.
+```cpp
+// this on the other hand pushes a immediate value 
+VM *__thiscall vm::vm_push_imm(VM *this)
+{
+  int v1; // STD4_4
+  VM *result; // eax
+  // e.g 'push 0xDEADBEEF`
+  v1 = (this->rip[1] << 24) + (this->rip[2] << 16) + (this->rip[3] << 8) + this->rip[4]; // resolve an int from the next 4 bytes.
+  this->dword20 -= 4;
+  *(_DWORD *)this->dword20 = v1;
+  result = this;
+  this->rip += 5; // 5 byte instruction len
+  return result;
+}
+```
+Now, the `loop` instruction, which we'll find out later is used by the bytecode several times.
+```cpp
+VM *__thiscall vm::vm_loop(VM *this)
+{
+  VM *result; // eax
+  unsigned __int8 *newIp; // ecx
+  int lcode_len; // [esp+D0h] [ebp-14h]
+  VM *v4; // [esp+DCh] [ebp-8h]
+
+  v4 = this;
+  lcode_len = this->rip[1];
+  if ( this->r3 )                               // reg3 used as a loop counter
+  {
+    --this->r3;                                 // dec the loop counter reg3
+    result = this;
+    newIp = &this->rip[-lcode_len];             // set the new instruction ptr
+  }
+  else
+  {
+    result = this;
+    newIp = this->rip + 2;                      // break out the loop once the loop counter hits 0 (2 byte instr len)
+  }
+  v4->rip = newIp;
+  return result;
+}
+```
+This will either jump back in the code to continue the loop or break out by advancing 2 bytes once `r3` hits 0. 
+
+The `cmp` instruction also reveals another bit of information.
+```cpp
+VM *__thiscall vm::vm_cmpi(VM *this)
+{
+  int dst; // esi
+  unsigned int dst_; // esi
+  unsigned int dst__; // esi
+  VM *result; // eax
+  VM *v5; // [esp+D0h] [ebp-8h]
+
+  v5 = this;
+  dst = (this->vfptr->vm_getd)(this);
+  if ( dst == (v5->vfptr->vm_gets)(v5) )
+    v5->r4 = 0;                                 // r4 is actually ends up being a flag used when a cmp instruction is executed
+  dst_ = (v5->vfptr->vm_getd)(v5);
+  if ( dst_ < (v5->vfptr->vm_gets)(v5) )
+    v5->r4 = -1;
+  dst__ = (v5->vfptr->vm_getd)(v5);
+  if ( dst__ > (v5->vfptr->vm_gets)(v5) )
+    v5->r4 = 1;
+  result = v5;
+  v5->rip += 2;
+  return result;
+}
+```
+We can safely rename `r4` to `cflag` (compare flag) instead, since it is only used by `cmp` and its relative jump instructions.
+
+So if we jump to `jg` handler, we'll see this, which checks out with the `cmp` handler we just reversed.
+
+```cpp
+VM *__thiscall vm::vm_jg(VM *this)
+{
+  VM *result; // eax
+  unsigned __int8 *v2; // ecx
+  VM *v3; // [esp+DCh] [ebp-8h]
+
+  v3 = this;
+  if ( this->cflag == 1 )                       // if cflag is set to 1 (greater than results to true), take the jmp.
+  {
+    result = this;
+    v2 = &this->rip[this->rip[1] + 2];
+  }
+  else                                          // else just continue to the next instruction (2 byte len)
+  {
+    result = this;
+    v2 = this->rip + 2;
+  }
+  v3->rip = v2;
+  return result;
+}
+```
+
+And lastly, a `inc` instruction, that doesn't increment a register, but rather a ptr we supplied earlier. If you looked in `main`, you would see the program's argument passed into the vm ctx structure.
+```cpp
+v11 = (void *)j_unknown_libname_1(0x64u);
+j_memcpy(v11, argv[1], 0x32u);
+..
+*(_DWORD *)(v16 + 20) = v11;
+```
+If we jump into the handler I named `inc_ui`, we'll see this
+```cpp
+VM *__thiscall vm::vm_inc_ui(VM *this)
+{
+  VM *result; // eax
+
+  ++this->dword18; // this is actually the `argv[1]` that was passed earlier. We can figure this out by checking vfunc 26.
+  result = this;
+  ++this->rip; // 1 byte instruction length
+  return result;
+}
+```
+So I renamed `dword18` to `ud` (user data). It has it's brother I called `dec_ui` which does the opposite.
+
+So with all the handlers named, reversed, and their instruction lengths known, I wrote a small disassembler to translate the byte code to its mnemonic. 
