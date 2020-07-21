@@ -13,7 +13,7 @@ So I fired up ClassInformer and as expected, a class named `VM` is listed, with 
 ![Imgur Image](https://i.imgur.com/HSti5tt.png)
 
 We'll need this later. Back into main, we can see that the first allocations are related to a `VM` structure creation. We can see some data intialization 
-```
+```cpp
 v12 = operator new(0x24u);
 v16 = v12;
 v12[1] = 0;
@@ -29,7 +29,7 @@ v16[6] = v14;
 v16[8] = &unk_41C000;
 ```
 We can also see immediately after that the data structure at `v16` is passed onto the first called virtual function.
-```
+```cpp
 (*(void (__thiscall **)(void *, _DWORD *))(*(_DWORD *)v17 + 104))(v17, v16);
 ```
 
@@ -49,7 +49,7 @@ Remember the first virtual function called, that passes the context data `v16`? 
 ![Imgur Image](https://i.imgur.com/uFTs7lR.png)
 
 We land here
-```
+```asm
 .text:004113AC vm__vm_begin    proc near               ; DATA XREF: .rdata:00419B9C↓o
 .text:004113AC                 jmp     sub_4121A0
 .text:004113AC vm__vm_begin    endp
@@ -57,7 +57,7 @@ We land here
 ```
 Follow the `jmp` and jump into pseudocode (F5)
 I called this `vm::vm_start`, but you're free to choose your own naming.
-```
+```cpp
 int __thiscall vm::vm_start(int this, _DWORD *a2)
 {
   *(_DWORD *)(this + 4) = *a2;
@@ -74,7 +74,7 @@ int __thiscall vm::vm_start(int this, _DWORD *a2)
 ```
 If you're following along, it is highly ideal to right click on `this` and hit "Create new structure." This will make IDA generate a new structure based on variables that are known.
 Now, we have this... 
-```
+```cpp
 int __thiscall vm::vm_start(VM *this, _DWORD *a2)
 {
   this->dword4 = *a2;
@@ -89,17 +89,17 @@ int __thiscall vm::vm_start(VM *this, _DWORD *a2)
   return 0;
 }
 ```
-Already much cleaner. Also, remember that 32 bytes down was the ptr to the VM byte code.. So `dword24` is probably the instruction pointer.. Lets rename `dword24` to `rip` (short for reg. instruction pointer, not to be confused with x64 rip).
+Already much cleaner. Also, remember that 32 bytes down was the ptr to the VM byte code.. So `dword24` is probably the instruction pointer.. Lets rename `dword24` to `rip` (short for reg. instruction pointer).
 
 Lets jump into vfunc 28, which was called inbetween the other 2 virtual functions. Go back to the VM structure ClassInformer told us about, and go 2 functions down. Follow the `jmp` again and you will land at
-```
+```asm
 .text:00411096 sub_411096      proc near               ; DATA XREF: .rdata:00419BA4↓o
 .text:00411096                 jmp     sub_417280
 .text:00411096 sub_411096      endp
 ```
 
 You will quickly realize what this is once you jump into pseudocode.
-```
+```cpp
 int __thiscall vm::vm_run(VM *this)
 {
   int result; // eax
@@ -194,7 +194,7 @@ It's the dispatcher which executes the byte code by calling all associated handl
 As you can see, the dispatcher takes the current opcode, subtracts 0x66 and attempts to process the opcode via a handler. Each handler is a virtual function, which will be easy to find since we have the virtual function table. 
 
 As you can see, the first handler starts at vfunc 4
-```
+```cpp
 case 1:
       (*(void (__thiscall **)(VM *))(*(_DWORD *)v4->gap0 + 16))(v4);
       break;
@@ -202,7 +202,7 @@ case 1:
 And keeps going down in numerical order (opcode 2 = vfunc 5).
 
 If we jump into the 4th virtual function, we'll get this.
-```
+```cpp
 VM *__thiscall sub_4177F0(VM *this)
 {
   int v1; // esi
@@ -220,3 +220,212 @@ VM *__thiscall sub_4177F0(VM *this)
 }
 ```
 So, by the looks of it, we need vfunc 0, 1, 2 as well to continue with our reversing, since they're all called here.
+
+So, now if we jump into the first vfunc, we'll see this. I've commented this function to make it easier.
+```cpp
+int __thiscall sub_412D40(VM *this)
+{
+  int result; // eax
+
+  // Check the high bits of the next byte in the byte-code for a match (0-4)
+  switch ( (unsigned __int8)((signed int)*(unsigned __int8 *)(this->rip + 1) >> 4) )
+  {
+    case 0u:
+      result = this->dword4;
+      break;
+    case 1u:
+      result = this->dword8;
+      break;
+    case 2u:
+      result = this->dwordC;
+      break;
+    case 3u:
+      result = this->dword10;
+      break;
+    case 4u:
+      result = this->dword14;
+      break;
+  }
+  return result;
+}
+```
+So depending if the high bits result to 0-4, we'll get a different member in the class each time. So, I figured that this is actually returning the VM's registers. So I've renamed them from `r0` (register 0) down to `r4`. We can't be sure yet that these registers are only used for general purposes, but we'll find out later if any of them needs to be renamed.
+
+Lets check the next function down.
+```cpp
+int __thiscall sub_412E10(VM *this)
+{
+  int result; // eax
+
+  switch ( *(_BYTE *)(this->rip + 1) & 0xF )
+  {
+    case 0:
+      result = this->r0;
+      break;
+    case 1:
+      result = this->r1;
+      break;
+    case 2:
+      result = this->r2;
+      break;
+    case 3:
+      result = this->r3;
+      break;
+    case 4:
+      result = this->r4;
+      break;
+  }
+  return result;
+}
+```
+Alternatively, this checks the low bits, but does the same thing. Let's check the 3rd vfunc to find out more info.
+```cpp
+VM *__thiscall sub_412EE0(VM *this, int a2)
+{
+  VM *result; // eax
+
+  switch ( (unsigned __int8)((signed int)*(unsigned __int8 *)(this->rip + 1) >> 4) )
+  {
+    case 0u:
+      result = this;
+      this->r0 = a2;
+      break;
+    case 1u:
+      result = this;
+      this->r1 = a2;
+      break;
+    case 2u:
+      result = this;
+      this->r2 = a2;
+      break;
+    case 3u:
+      result = this;
+      this->r3 = a2;
+      break;
+  }
+  return result;
+}
+```
+
+We can safely assume that the high bits are specifying the destination register. So we can name this `vm::setdst`, and the other 2 `vm::getdst` and `vm::getsrc`.
+
+Lets generate a structure from the VTable.
+![Imgur Image](https://i.imgur.com/WsIuJvD.png)
+
+Jump back into the function which called, `getdst`, `getsrc`, and `setdst`, and lets make it much more readable. Change the `this` to the `VM` structure we made earlier, and change `gap0`'s type by pressing `Y` or right-clicking and clicking `Set Field Type`
+![Imgur Image](https://i.imgur.com/WUiAH1E.png) 
+
+Change it to a ptr to the structure we generated from the VTable. Rename any functions appropriately and now we'll have this.
+```cpp
+VM *__thiscall vm::add(VM *this)
+{
+  int dst; // esi
+  int src; // eax
+  VM *result; // eax
+  VM *v4; // [esp+D0h] [ebp-8h]
+
+  v4 = this;
+  dst = ((int (__thiscall *)(VM *))this->vt->getdst)(this);
+  src = ((int (__thiscall *)(VM *))v4->vt->getsrc)(v4);
+  ((void (__thiscall *)(VM *, int))v4->vt->setdst)(v4, src + dst);
+  result = v4;
+  v4->rip += 2;
+  return result;
+}
+```
+MUCH cleaner. And we can easily see what this function does. Add the source and destination registers and store them in `dst`. It then advanced the instruction pointer 2 bytes forward, so this instruction length is 2 bytes long. We can appropriately call this function `vm::add`.
+
+For the purpose of not making this tutorial extremely long, I'll be only going over the `push`, `loop`, `cmp`, `jl/jg/je`, and an `inc` instruction.
+
+--- If you'd like to figure out the handlers yourself. Pause here as the next piece of code I'll be sharing shows the dispatcher with named functions.
+
+So, after going through the tedious work of figuring out all the handlers, I've named them to what I thought was correct.
+```cpp
+int __thiscall vm::vm_run(VM *this)
+{
+  int result; // eax
+  int curOpcode; // [esp+Ch] [ebp-DCh]
+  unsigned __int8 *ptrToCode; // [esp+D4h] [ebp-14h]
+  VM *v4; // [esp+E0h] [ebp-8h]
+
+  v4 = this;
+  while ( 1 )
+  {
+    ptrToCode = v4->rip;
+    curOpcode = *ptrToCode;
+    curOpcode -= 'f';                           // ? (vm_opcode - 0x66) = cur_opcode 
+    result = curOpcode;
+    switch ( curOpcode )
+    {
+      case 0:
+        return result;
+      case 1:
+        ((void (__thiscall *)(VM *))v4->vfptr->vm_add)(v4);// vfunc 4 : vm__Opcode1Handler
+        break;
+      case 2:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_sub)(v4);// vfunc 5
+        break;
+      case 3:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_mul)(v4);// 6
+        break;
+      case 4:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_div)(v4);// 7
+        break;
+      case 5:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_inc)(v4);// 8
+        break;
+      case 6:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_dec)(v4);
+        break;
+      case 7:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_xor)(v4);
+        break;
+      case 8:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_and)(v4);
+        break;
+      case 9:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_push)(v4);
+        break;
+      case 0xA:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_push_imm)(v4);
+        break;
+      case 0xB:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_pop)(v4);
+        break;
+      case 0xC:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_mov)(v4);
+        break;
+      case 0xD:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_mov_id)(v4);
+        break;
+      case 0xE:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_mov_di)(v4);
+        break;
+      case 0xF:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_loop)(v4);
+        break;
+      case 0x10:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_cmpi)(v4);
+        break;
+      case 0x11:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_jl)(v4);
+        break;
+      case 0x12:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_jg)(v4);
+        break;
+      case 0x13:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_je)(v4);
+        break;
+      case 0x14:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_inc_ui)(v4);
+        break;
+      case 0x15:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_dec_ui)(v4);
+        break;
+      case 0x16:
+        (*(void (__thiscall **)(VM *))&v4->vfptr->vm_xor16_66h)(v4);
+        break;
+    }
+  }
+}
+```
