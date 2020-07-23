@@ -564,4 +564,87 @@ VM *__thiscall vm::vm_inc_ui(VM *this)
 ```
 So I renamed `dword18` to `ud` (user data). It has it's brother I called `dec_ui` which does the opposite.
 
-So with all the handlers named, reversed, and their instruction lengths known, I wrote a small disassembler to translate the byte code to its mnemonic. 
+So with all the handlers named, reversed, and their instruction lengths known, I wrote a small disassembler to translate the byte code to its mnemonic, which you can find [here.](https://github.com/ayyMike/solving-vm-crackme-1/blob/master/crackme.cpp)
+
+This results in this output [here](https://github.com/ayyMike/solving-vm-crackme-1/blob/master/output).
+
+Now, you might immediately notice this line.
+```asm
+dxor 46, 39, 37, 45, 57, 50, 46, 35, 57, 54, 42, 39, 40, 35, 50 ; XOR'd -> 72, 65, 67, 75, 95, 84, 72, 69, 95, 80, 76, 65, 78, 69, 84
+```
+
+The `dxor` handler simply XOR's the next 15 bytes with `0x66`. This results in the string `HACK_THE_PLANET`, which admittedly, I tried feeding the program to check if that was the correct key (and obviously, it wasn't).
+
+So if we look at the generated output, we'll see this (which I've commented)
+
+```asm
+0010 | push 2F   
+0015 | loop 10
+0017 | pop r3		    ; r3 = 47, r3 is used as the loop counter if you remember, so we can see that this program expects input with a length of 47 characters
+0019 | movd r0     ; movd handler moves a character from user data into the dst register
+001B | xor r2, r2  ; zero out r2
+001D | cmp r0, r2  ; null terminator check
+001F | je 54       ; jump to 0x54 if its null
+0021 | inc_ui      ; inc_ui handler increments the user data ptr, so in other words advances to the next character.
+0022 | push 46     ; now if we check the code below, we'll see a bunch of checks as to whether the character is valid for the input
+0027 | pop r1      ; it's checking to see if each character is a valid hexadecimal digit
+0029 | cmp r0, r1  ; if it is not valid, it will exit out the code (see 0x54)
+002B | jg 54
+002D | push 30
+0032 | pop r1
+0034 | cmp r0, r1
+0036 | jl 4e
+0038 | push 39
+003D | pop r1
+003F | cmp r0, r1
+0041 | jl 4e
+0043 | push 41
+0048 | pop r0
+004A | cmp r0, r1
+004C | jl 54
+004E | xor r0, r0
+0050 | cmp r0, r0
+0052 | je 59
+; Code will jump here when it confirms the string is invalid
+0054 | xor r0, r0
+0056 | inc r0
+0058 | end
+0059 | loop 19 ; once the loop (47 iterations) is done and all characters are checked, it will continue to the next instruction
+```
+
+Now, we get to actually see some code which will reveal how to get the correct key!
+
+```asm
+005B | push 7
+0060 | pop r3     ; r3 = 7, we can expect a loop instruction later.
+0062 | xor r1, r1 ; 
+0064 | dec_ui     ; if you recalled earlier, there was 47 'inc_ui' instructions, but the program never called 'dec_ui' to reset the user ptr back to original.
+0065 | movd r0    ; because of this, we'll be working in 'reverse', meaning, the part of the key discovered here will be tagged on the end rather than the front.
+0067 | push 30    ; push '0'
+006C | pop r2     ; r2 = 0x30 ('0')
+006E | sub r0, r2 ; subtract the user input character by 0x30
+0070 | push A     
+0075 | pop r2     ; r2 = 0xA
+0077 | cmp r0, r2 ; check if (user char < 0xA)
+0079 | jl 84
+007B | push 7     ; more stuff here that does some arithmetic with the user data character fetched into r0.
+0080 | pop r2     ; we'll see soon why this isn't exactly important to know.
+0082 | sub r0, r2
+0084 | push 10
+0089 | pop r2
+008B | mul r1, r2
+008D | add r1, r0  ; seems like the final arithmetic instruction is stores in r1
+008F | loop 64    ; jump to 0x64 and continue (8 iterations)
+0091 | push F33746E6 ; You may be thinking what this is? Check the next few instructions
+0096 | pop r2        ; r2 = 0xF33746E6
+0098 | cmp r1, r2    ; remember r1 was the final value after the code manipulated the last 8 characters of our input,
+009A | xor r0, r0    
+009C | je a1         ; if the last 8 characters were equal to '6E64733F' (remember endianess), jmp to 0xA1 and continue checking the input.
+009E | inc r0        ; also important to note how the code keeps adjusting r0 before ending the program
+00A0 | end
+```
+
+Now if we keep looking at the output. We'll notice, there is a LOT more instructions, but the good part is we don't need 90% of it. As we saw before, the program pushes part of the key on the stack then just checks the manipulated input for a match.
+
+So lets continue, so far we have `6E64733F` at the end of the string..
+
