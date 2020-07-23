@@ -644,7 +644,82 @@ Now, we get to actually see some code which will reveal how to get the correct k
 00A0 | end
 ```
 
-Now if we keep looking at the output. We'll notice, there is a LOT more instructions, but the good part is we don't need 90% of it. As we saw before, the program pushes part of the key on the stack then just checks the manipulated input for a match.
+Now if we keep looking at the output. We'll notice, there is a LOT more instructions, but the good part is we don't need 90% of it. As we saw before, the program pushes part of the key on the stack then just checks the manipulated input for a match. So we just need the part which pushes the correct part of the key.
 
-So lets continue, so far we have `6E64733F` at the end of the string..
+So lets continue, so far we have `6E64733F` at the end of the string.. so the next relevant `push` is
 
+```asm
+00D7 | push 54962766
+00DC | pop r2
+00DE | cmp r1, r2
+```
+
+Just like that, we have another part of the key. Now we have `66726945`.
+
+```asm
+011D | dec r1
+011F | push 2542601
+0124 | pop r2
+0126 | cmp r1, r2
+0128 | xor r0, r0
+```
+
+So now we have `1062452`, right? *No.* The final input value is decremented before being compared! So the value is actually, 2542600, or `0062452` for our key.
+
+```asm
+0165 | inc r1
+0167 | push 547702E7
+016C | pop r2
+016E | cmp r1, r2
+```
+
+Another trick, an `inc` before the compare, it should be `547702E6` for our input, `6E207745` for our key.
+
+```asm
+01AD | push 1636C2F6
+01B2 | pop r2
+01B4 | cmp r1, r2
+..
+01F3 | push 16865747
+01F8 | pop r2
+01FA | cmp r1, r2
+```
+
+No edits here, we should be able to concatenate all the acquired parts and form a key 47 characters long!
+
+So starting from the end, we have
+`74756861`
+`6F2C6361`
+`6E207745`
+`20624520`
+`66726945`
+`6E64733F`
+
+And combined
+`747568616F2C63616E20774520624520667269456E64733F`
+
+Notice at the end
+```asm
+01FA | cmp r1, r2 ; compare r1 with valid key part
+01FC | xor r0, r0 ; zero out the r2 register
+01FE | je 202     ; if its a match, end the program
+0200 | inc r0     ; inc r0 if it isn't
+0202 | end        
+```
+
+So it would seem if `r0` is > 0, the key is incorrect. We'll confirm that in `main`.
+
+```cpp
+if ( !vm_ctx->r0 )
+ printf("Nice!!! U got it!\n", v4);
+ ```
+ 
+ So, lets feed the program our key.
+ 
+ ![Imgur Image](https://i.imgur.com/xMUhPAg.png)
+ 
+ 
+ 
+
+
+So lets feed the program.
