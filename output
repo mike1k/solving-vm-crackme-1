@@ -1,0 +1,196 @@
+0000 | dxor 46, 39, 37, 45, 57, 50, 46, 35, 57, 54, 42, 39, 40, 35, 50 ; XOR'd -> 72, 65, 67, 75, 95, 84, 72, 69, 95, 80, 76, 65, 78, 69, 84
+0010 | push 2F
+0015 | loop 10
+0017 | pop r3
+0019 | movd r0
+001B | xor r2, r2
+001D | cmp r0, r2
+001F | je 54
+0021 | inc_ui
+0022 | push 46
+0027 | pop r1
+0029 | cmp r0, r1
+002B | jg 54
+002D | push 30
+0032 | pop r1
+0034 | cmp r0, r1
+0036 | jl 4e
+0038 | push 39
+003D | pop r1
+003F | cmp r0, r1
+0041 | jl 4e
+0043 | push 41
+0048 | pop r0
+004A | cmp r0, r1
+004C | jl 54
+004E | xor r0, r0
+0050 | cmp r0, r0
+0052 | je 59
+0054 | xor r0, r0
+0056 | inc r0
+0058 | end
+0059 | loop 19
+005B | push 7
+0060 | pop r3
+0062 | xor r1, r1
+0064 | dec_ui
+0065 | movd r0
+0067 | push 30
+006C | pop r2
+006E | sub r0, r2
+0070 | push A
+0075 | pop r2
+0077 | cmp r0, r2
+0079 | jl 84
+007B | push 7
+0080 | pop r2
+0082 | sub r0, r2
+0084 | push 10
+0089 | pop r2
+008B | mul r1, r2
+008D | add r1, r0
+008F | loop 64
+0091 | push F33746E6
+0096 | pop r2
+0098 | cmp r1, r2
+009A | xor r0, r0
+009C | je a1
+009E | inc r0
+00A0 | end
+00A1 | push 7
+00A6 | pop r3
+00A8 | xor r1, r1
+00AA | dec_ui
+00AB | movd r0
+00AD | push 30
+00B2 | pop r2
+00B4 | sub r0, r2
+00B6 | push A
+00BB | pop r2
+00BD | cmp r0, r2
+00BF | jl ca
+00C1 | push 7
+00C6 | pop r2
+00C8 | sub r0, r2
+00CA | push 10
+00CF | pop r2
+00D1 | mul r1, r2
+00D3 | add r1, r0
+00D5 | loop aa
+00D7 | push 54962766
+00DC | pop r2
+00DE | cmp r1, r2
+00E0 | xor r0, r0
+00E2 | je e7
+00E4 | inc r0
+00E6 | end
+00E7 | push 7
+00EC | pop r3
+00EE | xor r1, r1
+00F0 | dec_ui
+00F1 | movd r0
+00F3 | push 30
+00F8 | pop r2
+00FA | sub r0, r2
+00FC | push A
+0101 | pop r2
+0103 | cmp r0, r2
+0105 | jl 110
+0107 | push 7
+010C | pop r2
+010E | sub r0, r2
+0110 | push 10
+0115 | pop r2
+0117 | mul r1, r2
+0119 | add r1, r0
+011B | loop f0
+011D | dec r1
+011F | push 2542601
+0124 | pop r2
+0126 | cmp r1, r2
+0128 | xor r0, r0
+012A | je 12f
+012C | inc r0
+012E | end
+012F | push 7
+0134 | pop r3
+0136 | xor r1, r1
+0138 | dec_ui
+0139 | movd r0
+013B | push 30
+0140 | pop r2
+0142 | sub r0, r2
+0144 | push A
+0149 | pop r2
+014B | cmp r0, r2
+014D | jl 158
+014F | push 7
+0154 | pop r2
+0156 | sub r0, r2
+0158 | push 10
+015D | pop r2
+015F | mul r1, r2
+0161 | add r1, r0
+0163 | loop 138
+0165 | inc r1
+0167 | push 547702E7
+016C | pop r2
+016E | cmp r1, r2
+0170 | xor r0, r0
+0172 | je 177
+0174 | inc r0
+0176 | end
+0177 | push 7
+017C | pop r3
+017E | xor r1, r1
+0180 | dec_ui
+0181 | movd r0
+0183 | push 30
+0188 | pop r2
+018A | sub r0, r2
+018C | push A
+0191 | pop r2
+0193 | cmp r0, r2
+0195 | jl 1a0
+0197 | push 7
+019C | pop r2
+019E | sub r0, r2
+01A0 | push 10
+01A5 | pop r2
+01A7 | mul r1, r2
+01A9 | add r1, r0
+01AB | loop 180
+01AD | push 1636C2F6
+01B2 | pop r2
+01B4 | cmp r1, r2
+01B6 | xor r0, r0
+01B8 | je 1bd
+01BA | inc r0
+01BC | end
+01BD | push 7
+01C2 | pop r3
+01C4 | xor r1, r1
+01C6 | dec_ui
+01C7 | movd r0
+01C9 | push 30
+01CE | pop r2
+01D0 | sub r0, r2
+01D2 | push A
+01D7 | pop r2
+01D9 | cmp r0, r2
+01DB | jl 1e6
+01DD | push 7
+01E2 | pop r2
+01E4 | sub r0, r2
+01E6 | push 10
+01EB | pop r2
+01ED | mul r1, r2
+01EF | add r1, r0
+01F1 | loop 1c6
+01F3 | push 16865747
+01F8 | pop r2
+01FA | cmp r1, r2
+01FC | xor r0, r0
+01FE | je 202
+0200 | inc r0
+0202 | end
