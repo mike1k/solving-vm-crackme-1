@@ -44,7 +44,7 @@ Clicking on `unk_41C000` will lead us to a large chunk of data..
 
 I automatically suspected this to be the byte code for the VM, which is correct, but now to good stuff.
 
-Remember the first virtual function called, that passes the context data `v16`? `104/4` = idx 26. So lets count from the VM structure ClassInformer gave us.
+Remember the first virtual function called, that passes the context data `v16`? `104/4` = idx 26. So lets count down from `419B34` starting from 0 to 26. Then click on the subroutine.
 
 ![Imgur Image](https://i.imgur.com/uFTs7lR.png)
 
@@ -580,7 +580,7 @@ So if we look at the generated output, we'll see this (which I've commented)
 ```asm
 0010 | push 2F   
 0015 | loop 10
-0017 | pop r3		    ; r3 = 47, r3 is used as the loop counter if you remember, so we can see that this program expects input with a length of 47 characters
+0017 | pop r3		    ; r3 = 47, r3 is used as the loop counter if you remember, so we can see that this program expects input with a length of 48 (loop goes down to 0) characters
 0019 | movd r0     ; movd handler moves a character from user data into the dst register
 001B | xor r2, r2  ; zero out r2
 001D | cmp r0, r2  ; null terminator check
@@ -609,7 +609,7 @@ So if we look at the generated output, we'll see this (which I've commented)
 0054 | xor r0, r0
 0056 | inc r0
 0058 | end
-0059 | loop 19 ; once the loop (47 iterations) is done and all characters are checked, it will continue to the next instruction
+0059 | loop 19 ; once the loop (48 iterations) is done and all characters are checked, it will continue to the next instruction
 ```
 
 Now, we get to actually see some code which will reveal how to get the correct key!
@@ -618,7 +618,7 @@ Now, we get to actually see some code which will reveal how to get the correct k
 005B | push 7
 0060 | pop r3     ; r3 = 7, we can expect a loop instruction later.
 0062 | xor r1, r1 ; 
-0064 | dec_ui     ; if you recalled earlier, there was 47 'inc_ui' instructions, but the program never called 'dec_ui' to reset the user ptr back to original.
+0064 | dec_ui     ; if you recalled earlier, there was 48 'inc_ui' instructions, but the program never called 'dec_ui' to reset the user ptr back to original.
 0065 | movd r0    ; because of this, we'll be working in 'reverse', meaning, the part of the key discovered here will be tagged on the end rather than the front.
 0067 | push 30    ; push '0'
 006C | pop r2     ; r2 = 0x30 ('0')
@@ -664,7 +664,7 @@ Just like that, we have another part of the key. Now we have `66726945`.
 0128 | xor r0, r0
 ```
 
-So now we have `1062452`, right? *No.* The final input value is decremented before being compared! So the value is actually, 2542600, or `0062452` for our key.
+So now we have `1062452`, right? *No.* The final input value is decremented before being compared! So the value is actually, 0x02542602, or `20624520` for our key.
 
 ```asm
 0165 | inc r1
@@ -685,7 +685,7 @@ Another trick, an `inc` before the compare, it should be `547702E6` for our inpu
 01FA | cmp r1, r2
 ```
 
-No edits here, we should be able to concatenate all the acquired parts and form a key 47 characters long!
+No edits here, we should be able to concatenate all the acquired parts and form a key 48 characters long!
 
 So starting from the end, we have
 `74756861`
@@ -719,7 +719,3 @@ if ( !vm_ctx->r0 )
  ![Imgur Image](https://i.imgur.com/xMUhPAg.png)
  
  
- 
-
-
-So lets feed the program.
